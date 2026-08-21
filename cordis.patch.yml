@@ -1,0 +1,12 @@
+# dsh-global-prompt —— 全局提示词与系统规范可视化管理插件
+#
+# 自动在全局 systemPrompt 的 order: -1 注册持久化的全局提示词
+# 无论切换任何预设（Preset），全局提示词均稳定生效作为基础红线底色
+- insert:
+    - id: global-prompt
+      name: 'dsh-global-prompt'
+      config:
+        # 提示词持久化存储路径（默认 $DSH_HOME/user/global-prompt.md）
+        filePath: !!js process.env.DSH_GLOBAL_PROMPT_FILE
+        # 权重（默认 -1，渲染在 Harness 身份之后、Preset Persona 之前）
+        order: -1
