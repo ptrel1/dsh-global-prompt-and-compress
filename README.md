@@ -1,67 +1,81 @@
-# dsh-global-prompt
+# 🧭 dsh-global-prompt
 
-> DeepSeek Harness 全局提示词与人设管理插件：**原生设置面板大文本框可视化编辑 + 磁盘持久化保存 + 0 重启即改即生效（order: -1 置顶底色）**。
+> 给 DeepSeek Harness 的提示词管理装上图形界面：全局 `AGENTS.md`、各工作区 `AGENTS.md` 可视化编辑，改完即生效，不用再手动翻文件。
 
-一个**独立、非侵入**的 DSH 插件。通过 Cordis 补丁机制将用户自定义的代码规范、常用目录与团队规约注入到 System Prompt 的最前置底色层（`order: -1`）。
+![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)
 
----
+## 这是什么
 
-## 特性亮点
+DSH 的指令注入机制（`dsh-agent-instructions`）是**读文件**的：`$DSH_HOME/AGENTS.md` 就是全局提示词，写进去就生效。但没有面板，你得自己去翻安装目录改文件。
 
-1. **绝对零侵入**：
-   - 绝不修改 DSH 任何核心 `packages/` 源码，DSH 从官方 upstream 拉取更新毫无冲突。
-2. **Web 原生设置面板无缝集成**：
-   - 注入 DSH 设置面板专属分类（`settings.section` 插槽），提供大尺寸代码风格 Markdown 文本框编辑器；
-   - 支持快捷键 `Ctrl+S` / `Cmd+S` 一键保存；
-   - 完美适配系统浅色 / 暗黑模式。
-3. **0 重启，即改即生效**：
-   - 点击保存后，宿主端原子更新 `$DSH_HOME/user/global-prompt.md` 磁盘文件，并动态刷新 `ctx.systemPrompt.section`；
-   - 所有新建会话及已有会话的后续轮次秒级加载新规约，**完全无需重启 DSH 守护进程**。
-4. **与预设（Preset）完美共存**：
-   - 注入层级固定在 `order: -1`（Harness 基础身份之后、Preset Persona 之前）；
-   - 无论切换至标准模式、PTC 模式、极简模式或自定义预设，全局提示词均作为**基础红线底色**稳定生效。
+本插件在设置面板里开了三个 tab，把这件事变成点一点：
 
----
+| Tab | 干什么 |
+| --- | --- |
+| 全局 | 编辑 `$DSH_HOME/AGENTS.md`，下一条消息就生效，不用重启、不用开新会话 |
+| 项目 | 按工作区管理各自的 `AGENTS.md`，只对那个工作区生效 |
+| 通知 | 任务完成/失败弹系统通知，点一下回到对应会话 |
 
-## 目录结构
+## 特性
 
-```
-dsh-global-prompt/
-├── package.json           # 清单：dsh.bundle.patch 与 dsh.client 注册声明
-├── cordis.patch.yml       # 挂载声明（insert global-prompt 行）
-├── app.toml               # PostSup 被管应用配置（python-git 增量升级）
-├── tools/
-│   └── package.sh         # 标准发布打包脚本（生成带 version.json 的 zip）
-├── lib/
-│   ├── index.js           # 🟢 宿主半侧：文件读写 + systemPrompt Section 动态更新 + REST API
-│   └── client.js          # 🔵 浏览器半侧：DSH 原生设置面板 Markdown 编辑器组件
-├── skill/
-│   └── project.md         # 项目开发与运维规范
-└── README.md
-```
+- **双向同步**：插件外直接改 `AGENTS.md`，面板能读到（150ms 内自动回写设置）；面板保存，文件被重写。两个方向都有内容守卫，不会互刷。
+- **不丢数据**：你手动维护过 `AGENTS.md` 的话，插件启动时以磁盘为准回填设置，绝不会被默认空值覆盖；关闭「启用」也不会清空你的文件。
+- **身份注入**：可选在每次对话开头加一句「我是 DeepSeek Harness」。
+- **人设注入**：写一段人设，一直拼在对话里。支持 `{{model}}`、`{{cwd}}` 占位符。
+- **运行时上下文开关**：不需要时抑制 DSH 自带的会话信息快照。
+- **结果通知**：桌面壳用系统通知，纯 Web 用浏览器通知。
 
----
+## 安装
 
-## 安装与挂载
+### 独立安装
 
-### 1. 挂载到 Web Profile
 ```bash
-cd ~/.dsh/profiles/web
-dsh plugin --profile web add link:/main/app/github/dsh-global-prompt
+dsh plugin --profile <你的profile> add dsh-global-prompt
 ```
 
-### 2. 通过 PostSup 安全更新（推荐）
-在项目根目录执行打包：
+### 随壳内置
+
+dsh-desktop 安装器已捆绑本插件（默认启用，可在插件管理里关掉）。
+
+> 原理：本插件的 bundle patch 会重新启用 `dsh-agent-instructions`（web-app bundle 默认禁用它），面板里写的 AGENTS.md 由官方机制注入——所见即所注入。
+
+## 开发
+
+纯 ESM，无构建步骤。结构：
+
+- `index.js` — 服务端：settings 注册、AGENTS.md 双向同步（目录监听 + 防抖）、两个 HTTP API、身份/人设注入、运行时上下文抑制
+- `client.js` — 设置面板 UI（全局/项目/通知三 tab）
+- `lib/core.js` — 校验与工具函数（persona ≤ 20000 字符、指令 ≤ 1MiB）
+- `test/global-prompt-sync.mjs` — 双向同步防环自测（mock dsh-settings 语义）
+
+跑测试：
+
 ```bash
-./tools/package.sh 0.1.0
+node test/global-prompt-sync.mjs
 ```
-产物生成在 `update_package/dsh-global-prompt-v0.1.0.zip`。在 PostSup Web 控制台（`http://127.0.0.1:5013`）中上传升级，享受自动快照备份与一键自愈回滚保障。
+
+## 兼容性
+
+- 官方 dsh `>= 0.1.1-rc.1`（npm latest 为 0.1.1-rc.2）
+- Node >= 20
+- DSH Web 与 dsh-desktop Electron 壳均可
+
+## License
+
+MIT
+
 
 ---
 
-## 环境变量与配置项
+## 附带小工具
 
-| config 字段 | 环境变量 | 默认值 | 说明 |
-|---|---|---|---|
-| `filePath` | `DSH_GLOBAL_PROMPT_FILE` | `$DSH_HOME/user/global-prompt.md` | 提示词持久化 Markdown 文件路径 |
-| `order` | `DSH_GLOBAL_PROMPT_ORDER` | `-1` | 系统提示词组装权重 |
+核心提示词注入之外，本插件顺带收纳常用的会话级小优化（依附本插件部署，不单独成包）：
+
+- **会话压缩按钮**：输入区右侧一键触发内置 `/compact` 压缩历史；提交中/压缩中自动禁用，成功变绿、失败变红（tooltip 提示）。
+  - 真实失败原因只写会话日志 `compaction/end` 事件（如 provider 401 余额不足），UI 不回显。
+
+### 收纳标准
+
+- 会话级、client 逻辑 <100 行、无需独立配置面板
+- 有 host 服务或独立配置的功能请独立成插件
+- 提示词主功能改动优先级永远高于附带工具

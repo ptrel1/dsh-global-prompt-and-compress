@@ -1,12 +1,13 @@
-# dsh-global-prompt —— 全局提示词与系统规范可视化管理插件
-#
-# 自动在全局 systemPrompt 的 order: -1 注册持久化的全局提示词
-# 无论切换任何预设（Preset），全局提示词均稳定生效作为基础红线底色
+# dsh-global-prompt — bundle patch layer.
+# Inserted into the DSH profile tree when this package is installed
+# (installed in node_modules, or bundled by the dsh-desktop installer).
 - insert:
-    - id: global-prompt
+    - id: desktop-global-prompt
       name: 'dsh-global-prompt'
-      config:
-        # 提示词持久化存储路径（默认 $DSH_HOME/user/global-prompt.md）
-        filePath: !!js process.env.DSH_GLOBAL_PROMPT_FILE
-        # 权重（默认 -1，渲染在 Harness 身份之后、Preset Persona 之前）
-        order: -1
+
+# Re-enable the official agent-instructions mechanism (the web-app bundle disables it
+# by default): the global AGENTS.md and per-workspace AGENTS.md this plugin manages
+# are injected by dsh-agent-instructions, so it must be active.
+# 卸载本插件后该行随之消失,agent-instructions 回落 web-app 默认的 disabled: true。
+- id: agent-instructions
+  disabled: false
