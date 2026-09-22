@@ -1,17 +1,19 @@
 import z from '@deepseek-ai/schemastery';
-import { settingsNamespace } from '@deepseek-ai/dsh-settings';
 import { resolveDshHome } from '@deepseek-ai/dsh-home-paths';
 import { watch } from 'node:fs';
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { basename, dirname, join, resolve } from 'node:path';
 import { effectiveAgentsText, registeredWorkspacePath, validatePromptConfig, validateProjectText } from './lib/core.js';
 
-const NS = settingsNamespace('desktop-global-prompt');
+// 20260907 兼容上游 0.1.5：settingsNamespace 已内部化，字符串字面量直接作为品牌类型
+const NS = 'desktop-global-prompt';
 const Config = z.object({
   enabled: z.boolean().default(true), globalPrompt: z.string().default(''),
   includeHarnessIdentity: z.boolean().default(false), personaEnabled: z.boolean().default(false),
   persona: z.string().default(''), includeRuntimeContext: z.boolean().default(false),
   notifyResult: z.boolean().default(true), migrated: z.boolean().default(false),
+  // 附带小工具:会话压缩按钮(默认开,发送键一侧);side 仅支持 left/right 两个插槽
+  compactButton: z.boolean().default(true), compactButtonSide: z.string().default('right'),
 });
 const json = (res, status, value) => { res.statusCode = status; res.setHeader('content-type', 'application/json; charset=utf-8'); res.end(JSON.stringify(value)); };
 const body = async (req) => { const chunks=[]; let size=0; for await (const c of req) { size+=c.length; if (size>2*1024*1024) throw new Error('payload too large'); chunks.push(c); } return JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}'); };
@@ -19,7 +21,7 @@ const atomicWrite = async (path, text) => { await mkdir(dirname(path), { recursi
 
 // Config 白名单:PUT 只挑这些键,防止客户端把 GET 响应里附带的 agentsPath 等
 // 服务端字段透传持久化(schemastery object 非 strict,未知键原样保留)。
-const PROMPT_KEYS = ['enabled', 'globalPrompt', 'includeHarnessIdentity', 'personaEnabled', 'persona', 'includeRuntimeContext', 'notifyResult'];
+const PROMPT_KEYS = ['enabled', 'globalPrompt', 'includeHarnessIdentity', 'personaEnabled', 'persona', 'includeRuntimeContext', 'notifyResult', 'compactButton', 'compactButtonSide'];
 const pickPromptKeys = (input) => {
   const picked = {};
   for (const k of PROMPT_KEYS) if (k in input) picked[k] = input[k];

@@ -1,5 +1,15 @@
 # dsh-global-prompt 架构设计与实施计划 (RFC Plan)
 
+> ⚠️ **本文档描述 v0.1.0 时代的设计，部分内容已过时**（20260922 从 GitHub 仓库回灌并标注）。
+> **仍成立**：核心决策（`order: -1` 权重契约、100% 零侵入、原子写盘、1MB 上限）。
+> **已过时**：
+> - 持久化对象 `$DSH_HOME/user/global-prompt.md` → 现为 `$DSH_HOME/AGENTS.md`（插件改用 AGENTS.md 双向同步）
+> - API 路径 `/api/global-prompt` → 现为 `/api/desktop-global-prompt`
+> - 文件布局 `lib/index.js` + `lib/client.js` → 现为根目录 `index.js` + `client.js`
+> - 另新增：工作区级 `AGENTS.md` 编辑（`/api/desktop-project-instructions`）、会话压缩按钮、结果通知
+>
+> **现状以 `index.js` / `package.json` 为准。**
+
 - **项目名称**：`dsh-global-prompt`
 - **定位**：DeepSeek Harness (DSH) 独立全局提示词与人设可视化管理插件
 - **状态**：已完成基础搭建与验证，准备远端发布

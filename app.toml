@@ -1,9 +1,0 @@
-# PostSup 被管应用配置 —— dsh-global-prompt (DSH 全局提示词与人设管理插件)
-name = "dsh-global-prompt"
-version = "0.1.0"
-lang = "node"
-deploy_type = "python-git"            # 基于 zip 的代码增量/全量更新
-supervisor_service = "dsh-web"        # 关联的守护服务
-
-[python_git]
-  manifest_file = "file_manifest.json"
