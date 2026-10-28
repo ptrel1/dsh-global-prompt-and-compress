@@ -1,4 +1,4 @@
-window.__ModuleLoader__.load({ id: 'dsh-global-prompt', factory: (require) => {
+window.__ModuleLoader__.load({ id: 'dsh-global-prompt-and-compress', factory: (require) => {
   const module = { exports: {} };
   const React = require('react');
   const NS = 'desktop.globalPrompt';
@@ -20,17 +20,29 @@ window.__ModuleLoader__.load({ id: 'dsh-global-prompt', factory: (require) => {
       const [status, setStatus] = React.useState('');
       const [project, setProject] = React.useState({ workspaceId:'', text:'', workspaces:[] });
       React.useEffect(() => ctx.locale.subscribe(rerender), []);
-      // 重读配置与工作区列表:挂载时调用一次,刷新按钮也走这里。失败置 null 显示 loading 态。
+      // 重读配置与工作区列表:挂载时调用一次,刷新按钮也走这里。
+      // ⚠️ 20260922 修复「面板永久卡在『正在读取设置...』」:
+      //   原实现用 Promise.all 把「全局配置」与「工作区列表」捆在一起,任一失败/挂起即整页卡死。
+      //   实测(DSH 0.1.5-rc.2)api.workspace.list({}) 会永不 resolve —— 它不发 HTTP(走 RPC 通道),
+      //   既不 resolve 也不 reject,导致 Promise.all 永不完成、setState 永不执行、面板永远 null。
+      //   修法:全局配置是必需项(失败才显示 loading);工作区列表降级为「尽力而为」+ 超时,
+      //   拿不到只影响「项目」tab,不再拖垮整个面板。
       const load = React.useCallback(async () => {
         try {
-          const [globalRes, listRes] = await Promise.all([
-            fetch('/api/desktop-global-prompt'),
-            api.workspace.list({}),
-          ]);
+          const globalRes = await fetch('/api/desktop-global-prompt');
           setState(await globalRes.json());
-          const rows = listRes.result?.value?.items || [];
-          setProject((p) => ({ ...p, workspaces:rows, workspaceId:p.workspaceId || rows[0]?.workspaceId || '' }));
         } catch { setState(null); }
+        // 工作区列表:独立 try + 3s 超时,失败静默降级(项目 tab 会提示无可用工作区)
+        try {
+          const listRes = await Promise.race([
+            api.workspace.list({}),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('workspace.list timeout')), 3000)),
+          ]);
+          const rows = listRes?.result?.value?.items || [];
+          if (rows.length) {
+            setProject((p) => ({ ...p, workspaces:rows, workspaceId:p.workspaceId || rows[0]?.workspaceId || '' }));
+          }
+        } catch { /* 工作区列表不可用:不影响全局提示词编辑 */ }
       }, []);
       React.useEffect(() => { load(); }, [load]);
       if (!state) return React.createElement('p', null, t('loading'));

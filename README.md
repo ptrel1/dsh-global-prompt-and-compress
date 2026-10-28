@@ -4,40 +4,6 @@
 
 ![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)
 
-## ⚠️ 项目沿革与来源（必读）
-
-**本仓库是「发布出口」，不是唯一事实源；且现版代码主体来自上游，不是从零原创。**
-
-### 三代架构的演变
-
-| 阶段 | 时间 | 架构 | 状态 |
-| --- | --- | --- | --- |
-| **初代（原创）** | 2026-08-21 | 自建方案：`ctx.systemPrompt.section({order:-1})` 直接注册；提示词存 `$DSH_HOME/user/global-prompt.md`；API `/api/global-prompt`。仅覆盖**全局**提示词 | 已被替换（代码见 `git show eed45e2:lib/index.js`，设计文档留档 `doc/plan.md`） |
-| **现版（主体来自上游）** | 2026-08-25 起 | 复用官方机制：bundle patch 重新启用 `dsh-agent-instructions`，编辑 `AGENTS.md` 并双向同步；覆盖全局 + 各工作区 + 身份 + 人设 + 通知 | **当前主线** |
-| **本地增量** | 2026-09-03 起 | 在上游基础上适配 DSH 0.1.5（`settingsNamespace` 内部化）、新增会话压缩按钮、修复设置面板卡死 bug | 已合并进现版 |
-
-### 来源说明
-
-- **代码主体来自上游 [`sryimnoob123/dsh-global-prompt`](https://github.com/sryimnoob123/dsh-global-prompt)**
-  （npm 包 `dsh-global-prompt@0.1.2` 由其发布）。核心逻辑 `lib/core.js`、`cordis.patch.yml`
-  与本仓库逐字节一致，`index.js` 仅 3 处改动。
-  > ⚠️ 两地**无共同 git 祖先**（非 fork），是各自实现的同名项目；本仓库在其基础上做了本地增量。
-- **本仓库相对上游的增量**：
-  1. 适配 DSH 0.1.5 —— `settingsNamespace` 已内部化，改用字符串字面量
-  2. 新增「会话压缩按钮」配置项与 UI
-  3. 修复设置面板永久卡在「正在读取设置...」的 bug（`api.workspace.list` 永不 resolve）
-- **授权**：上游为 MIT，允许修改与再分发；本仓库保留其 LICENSE。
-
-### 三个仓库的关系
-
-| 仓库 | 角色 |
-| --- | --- |
-| `sryimnoob123/dsh-global-prompt` | **上游原创**（npm 发布源，0.1.2） |
-| `ptrel1/dsh-global-prompt`（本仓库） | **发布出口 / 二次开发**（0.2.0） |
-| `ptrel1/dsh1-plugins` → `plugins/dsh-global-prompt/` | **实际部署源**（改代码以这里为准，再同步两侧） |
-
-> 本仓库不做独立开发。改代码请改 gitea monorepo，然后同步到这里（见 `package.json` 的 `source` 字段）。
-
 ## 这是什么
 
 DSH 的指令注入机制（`dsh-agent-instructions`）是**读文件**的：`$DSH_HOME/AGENTS.md` 就是全局提示词，写进去就生效。但没有面板，你得自己去翻安装目录改文件。

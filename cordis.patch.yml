@@ -3,7 +3,7 @@
 # (installed in node_modules, or bundled by the dsh-desktop installer).
 - insert:
     - id: desktop-global-prompt
-      name: 'dsh-global-prompt'
+      name: 'dsh-global-prompt-and-compress'
 
 # Re-enable the official agent-instructions mechanism (the web-app bundle disables it
 # by default): the global AGENTS.md and per-workspace AGENTS.md this plugin manages

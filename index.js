@@ -5,9 +5,8 @@ import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { basename, dirname, join, resolve } from 'node:path';
 import { effectiveAgentsText, registeredWorkspacePath, validatePromptConfig, validateProjectText } from './lib/core.js';
 
-// 20260907 兼容上游 0.1.5：settingsNamespace 已内部化，字符串字面量直接作为品牌类型
-const NS = 'desktop-global-prompt';
-const Config = z.object({
+// 20260923：NS 移至 apply 内（0.1.7 起该 id 既是设置命名空间也是插件行 id）
+export const Config = z.object({
   enabled: z.boolean().default(true), globalPrompt: z.string().default(''),
   includeHarnessIdentity: z.boolean().default(false), personaEnabled: z.boolean().default(false),
   persona: z.string().default(''), includeRuntimeContext: z.boolean().default(false),
@@ -28,9 +27,19 @@ const pickPromptKeys = (input) => {
   return picked;
 };
 
-export function apply(ctx) {
-  ctx.inject(['settings', 'webServer', 'workspaceRegistry', 'systemPrompt'], (sctx) => {
-    const scope = sctx.settings.register(NS, Config);
+export function apply(ctx, pluginConfig) {
+  ctx.inject(['settings', 'webServer', 'workspaceRegistry', 'systemPrompt', 'configEditor'], (sctx) => {
+    // 20260923 适配上游 0.1.7：settings.register/scope 已移除。
+    // 配置改由 Cordis 的 Config 声明 + apply 第二参注入；写回走 settings.update(行id, patch)。
+    const NS = 'desktop-global-prompt';
+    let current = { ...pluginConfig };
+    const scope = {
+      get: () => current,
+      update: async (patch) => {
+        current = { ...current, ...patch };
+        await sctx.settings.update(NS, patch);
+      },
+    };
     const agentsPath = join(resolveDshHome(), 'AGENTS.md');
     // 内容守卫:与磁盘当前文本相同时跳过写入。既省一次 rename/fs 事件,
     // 也让「外部改文件 → 回写 settings → watch 回调」方向不再写盘,防死循环。
@@ -113,8 +122,24 @@ export function apply(ctx) {
     const disposeWatch = watchAgentsFile(scope);
     sctx.effect(() => {
       applySuppression(scope.get());
-      const watcher = scope.watch((next) => { applySuppression(next); return syncAgents(next); });
-      return () => { watcher(); if (suppressDisposer) { suppressDisposer(); suppressDisposer = null; } disposeWatch(); };
+      // 0.1.7 用 settings/document-updated(行id, revision) 事件替代 scope.watch；
+      // 事件只给 revision，故从 configEditor 重读当前行配置。
+      const onDocUpdated = async (ns) => {
+        if (ns !== NS) return;
+        try {
+          const entry = sctx.configEditor?.entries?.().find((row) => row.options.id === NS);
+          const next = entry?.fiber?.config ?? scope.get();
+          current = { ...next };
+          applySuppression(next);
+          await syncAgents(next);
+        } catch (e) { ctx.logger.warn('desktop-global-prompt: config reload failed: %o', e); }
+      };
+      sctx.on('settings/document-updated', onDocUpdated);
+      return () => {
+        sctx.off?.('settings/document-updated', onDocUpdated);
+        if (suppressDisposer) { suppressDisposer(); suppressDisposer = null; }
+        disposeWatch();
+      };
     }, 'desktop-global-prompt: sync AGENTS.md');
     sctx.on('system-prompt/assemble', async (assembly, _context, next) => {
       const out = await next(); const c = scope.get(); if (!c.enabled) return out;

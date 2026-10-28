@@ -1,12 +1,13 @@
 {
-  "name": "dsh-global-prompt",
+  "name": "dsh-global-prompt-and-compress",
   "description": "DSH 设置插件：管理全局与各工作区 AGENTS.md、身份/人设注入、结果通知。Global and per-workspace AGENTS.md editor, identity/persona injection, and result notifications for DeepSeek Harness. 附带:会话压缩按钮等基础小工具(收纳区)。",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "type": "module",
   "main": "index.js",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ptrel1/dsh-global-prompt.git"
+    "url": "git+ssh://git@git.ptrel.cc.cd:52222/ptrel1/dsh1-plugins.git",
+    "directory": "plugins/dsh-global-prompt"
   },
   "exports": {
     ".": "./index.js",
@@ -26,6 +27,11 @@
         "@deepseek-ai/dsh-client-ui-settings",
         "@deepseek-ai/dsh-client-locale"
       ]
+    },
+    "compatibility": {
+      "dshReleases": {
+        "0.2.1-rc.2": "compatible"
+      }
     }
   },
   "engines": {
@@ -43,23 +49,12 @@
   ],
   "license": "MIT",
   "peerDependencies": {
-    "@deepseek-ai/dsh-settings": "0.1.1-rc.2",
-    "@deepseek-ai/dsh-host-webserver": "0.1.1-rc.2",
-    "@deepseek-ai/cordis": "^4.0.1"
+    "@deepseek-ai/cordis": "^4.0.1",
+    "@deepseek-ai/dsh-settings": "^0.1.1-rc.2 || >=0.2.0-rc.1 <0.3.0-0",
+    "@deepseek-ai/dsh-host-webserver": "^0.1.1-rc.2 || >=0.2.0-rc.1 <0.3.0-0"
   },
-  "source": {
-    "note": "本仓库是对外发布出口。实际开发维护在 gitea monorepo ptrel1/dsh1-plugins 的 plugins/dsh-global-prompt/，改动须两侧同步推送。",
-    "url": "git+ssh://git@git.ptrel.cc.cd:52222/ptrel1/dsh1-plugins.git",
-    "directory": "plugins/dsh-global-prompt"
-  },
-  "upstream": {
-    "note": "代码主体来自上游（MIT）。核心逻辑 lib/core.js 与 cordis.patch.yml 逐字节一致，index.js 仅 3 处本地改动：适配 DSH 0.1.5（settingsNamespace 内部化）、新增会话压缩按钮、修复设置面板卡死。两地无共同 git 祖先（非 fork）。",
-    "repo": "https://github.com/sryimnoob123/dsh-global-prompt",
-    "npm": "dsh-global-prompt@0.1.2",
-    "version": "0.1.2"
-  },
-  "originalImplementation": {
-    "note": "初代原创实现（2026-08-21）走的是自建路线：ctx.systemPrompt.section({order:-1}) 直接注册，提示词存 $DSH_HOME/user/global-prompt.md，API /api/global-prompt，仅覆盖全局提示词。已于 2026-09-03 被现版（复用官方 agent-instructions 机制）替换，代码保存在 git 历史中，可用 git show eed45e2:lib/index.js 查看；设计文档留档 doc/plan.md。",
-    "commit": "eed45e2"
+  "mirror": {
+    "note": "对外发布出口（GitHub）。本插件开发维护在此 monorepo，改动须两侧同步推送。",
+    "url": "git+https://github.com/ptrel1/dsh-global-prompt.git"
   }
 }
