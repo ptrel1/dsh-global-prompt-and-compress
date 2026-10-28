@@ -1,7 +1,7 @@
 {
   "name": "dsh-global-prompt-and-compress",
   "description": "DSH 设置插件：管理全局与各工作区 AGENTS.md、身份/人设注入、结果通知。Global and per-workspace AGENTS.md editor, identity/persona injection, and result notifications for DeepSeek Harness. 附带:会话压缩按钮等基础小工具(收纳区)。",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "type": "module",
   "main": "index.js",
   "repository": {

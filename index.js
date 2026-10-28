@@ -6,14 +6,22 @@ import { basename, dirname, join, resolve } from 'node:path';
 import { effectiveAgentsText, registeredWorkspacePath, validatePromptConfig, validateProjectText } from './lib/core.js';
 
 // 20260923：NS 移至 apply 内（0.1.7 起该 id 既是设置命名空间也是插件行 id）
+// 20261027：可热改字段必须标 volatile —— 宿主 0.2.x 的 dsh-settings write() 只放行
+// Config 上 meta.volatile 的字段，否则抛「Plugin entry "<id>" has no volatile fields」。
+// 副作用：标了 volatile 的字段在 apply 第二参里会变成 cosmokit 引用对象（{ get() }），
+// 所以下游一律经 snapshot() 折回普通对象再读（见下）。migrated 是内部迁移标记，不写入。
 export const Config = z.object({
-  enabled: z.boolean().default(true), globalPrompt: z.string().default(''),
-  includeHarnessIdentity: z.boolean().default(false), personaEnabled: z.boolean().default(false),
-  persona: z.string().default(''), includeRuntimeContext: z.boolean().default(false),
-  notifyResult: z.boolean().default(true), migrated: z.boolean().default(false),
+  enabled: z.boolean().default(true).volatile(), globalPrompt: z.string().default('').volatile(),
+  includeHarnessIdentity: z.boolean().default(false).volatile(), personaEnabled: z.boolean().default(false).volatile(),
+  persona: z.string().default('').volatile(), includeRuntimeContext: z.boolean().default(false).volatile(),
+  notifyResult: z.boolean().default(true).volatile(), migrated: z.boolean().default(false),
   // 附带小工具:会话压缩按钮(默认开,发送键一侧);side 仅支持 left/right 两个插槽
-  compactButton: z.boolean().default(true), compactButtonSide: z.string().default('right'),
+  compactButton: z.boolean().default(true).volatile(), compactButtonSide: z.string().default('right').volatile(),
 });
+/** 解引用：volatile 字段是 cosmokit 引用对象（{ get() }），普通字段原样返回。 */
+const unref = (value) => (value && typeof value === 'object' && typeof value.get === 'function' ? value.get() : value);
+/** 把 apply 收到的（可能含引用对象的）config 折成普通对象，供下游沿用旧的普通对象读法。 */
+const snapshot = (config) => Object.fromEntries(Object.entries(config ?? {}).map(([key, value]) => [key, unref(value)]));
 const json = (res, status, value) => { res.statusCode = status; res.setHeader('content-type', 'application/json; charset=utf-8'); res.end(JSON.stringify(value)); };
 const body = async (req) => { const chunks=[]; let size=0; for await (const c of req) { size+=c.length; if (size>2*1024*1024) throw new Error('payload too large'); chunks.push(c); } return JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}'); };
 const atomicWrite = async (path, text) => { await mkdir(dirname(path), { recursive: true }); const tmp=`${path}.${process.pid}.${Date.now()}.tmp`; await writeFile(tmp, text, 'utf8'); await rename(tmp, path); };
@@ -32,12 +40,14 @@ export function apply(ctx, pluginConfig) {
     // 20260923 适配上游 0.1.7：settings.register/scope 已移除。
     // 配置改由 Cordis 的 Config 声明 + apply 第二参注入；写回走 settings.update(行id, patch)。
     const NS = 'desktop-global-prompt';
-    let current = { ...pluginConfig };
+    let current = snapshot(pluginConfig);
     const scope = {
       get: () => current,
       update: async (patch) => {
         current = { ...current, ...patch };
         await sctx.settings.update(NS, patch);
+        // 宿主写盘后会把新值推回 volatile 引用，重新折一次拿权威值
+        current = snapshot(pluginConfig);
       },
     };
     const agentsPath = join(resolveDshHome(), 'AGENTS.md');
@@ -128,8 +138,9 @@ export function apply(ctx, pluginConfig) {
         if (ns !== NS) return;
         try {
           const entry = sctx.configEditor?.entries?.().find((row) => row.options.id === NS);
-          const next = entry?.fiber?.config ?? scope.get();
-          current = { ...next };
+          // entry.fiber.config 是含引用对象的原始配置，scope.get() 已是普通对象，两者都过一遍 snapshot
+          const next = snapshot(entry?.fiber?.config ?? scope.get());
+          current = next;
           applySuppression(next);
           await syncAgents(next);
         } catch (e) { ctx.logger.warn('desktop-global-prompt: config reload failed: %o', e); }

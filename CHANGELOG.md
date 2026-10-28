@@ -2,6 +2,17 @@
 
 本项目所有值得记录的变更都会写在这里。
 
+## [0.2.2] - 2026-10-27
+
+### 修复
+- 宿主 0.2.x 下设置面板保存报错 `Plugin entry "desktop-global-prompt" has no volatile fields`：
+  `dsh-settings` 的 `write()` 只放行 Config 上标了 `volatile` 的字段（schemastery `.volatile()`
+  ⇒ `meta.volatile`）。本插件 20260923 的适配只声明了 Config 而未标 volatile，导致所有
+  `settings.update` 被拒 —— 保存不生效，启动回填 `AGENTS.md` 同样失败。
+- 9 个可写字段改标 `.volatile()`（`migrated` 是内部迁移标记，保持普通字段）。
+- 标了 volatile 的字段在 `apply` 第二参里会变成 cosmokit 引用对象（`{ get() }`），统一经
+  `snapshot()` 折回普通对象，下游读法不变；写入后从引用重新取权威值。
+
 ## [0.1.2] - 2026-08-25
 
 ### 新增
